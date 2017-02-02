@@ -5,6 +5,9 @@ import random
 myID, game_map = hlt.get_init()
 hlt.send_init("K2SOBot")
 
+#99% of this bot is just the Overkill bot with weigthed heuristics and altered 
+#production levels. We spent a lot of time messing with numbers trying to
+#get certain behaviors to become more prevalent than others
 
 def find_nearest_enemy_direction(square):
     direction = NORTH
@@ -25,10 +28,10 @@ def heuristic(square):
 	#currently prioritizing gaining territory over fighting. 
 	#weak to an overly aggressive enemy
     if square.owner == 0 and square.strength > 0:
-        return (square.production / square.strength)*100
+        return (square.production / square.strength)*7.5 #WEIGHT ADDED
     else:
         # return total potential damage caused by overkill when attacking this square
-        return (sum(neighbor.strength for neighbor in game_map.neighbors(square) if neighbor.owner not in (0, myID)))*10
+        return (sum(neighbor.strength for neighbor in game_map.neighbors(square) if neighbor.owner not in (0, myID)))*2.0 #WEIGHT ADDED
 
 def get_move(square):
     target, direction = max(((neighbor, direction) for direction, neighbor in enumerate(game_map.neighbors(square))
@@ -39,7 +42,7 @@ def get_move(square):
         return Move(square, direction)
 	#base production multiplier is 5. Increased number means bots will be more
 	#patient and grow more before moving out, thus stronger armies, but slower reinforcements and territory gain
-    elif square.strength < square.production*4.9:
+    elif square.strength < square.production*4.5:#MODIFIED PRODUCITON MULTIPLIER
         return Move(square, STILL)
 
     border = any(neighbor.owner != myID for neighbor in game_map.neighbors(square))
