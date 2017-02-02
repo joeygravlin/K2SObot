@@ -22,6 +22,7 @@ def find_nearest_enemy_direction(square):
     return direction
 
 def heuristic(square):
+	#default value of 1. Higher values means less likely to choose this action
     if square.owner == 0 and square.strength > 0:
         return (square.production / square.strength)/1.5
     else:
@@ -35,6 +36,8 @@ def get_move(square):
                                 key = lambda t: heuristic(t[0]))
     if target is not None and target.strength < square.strength:
         return Move(square, direction)
+	#base production multiplier is 5. Increased number means bots will be more
+	#patient and grow more before moving out, thus stronger armies
     elif square.strength < square.production * 7:
         return Move(square, STILL)
 
