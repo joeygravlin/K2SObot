@@ -1,7 +1,12 @@
 #!/bin/bash
 
+MY_BOT=MyBot.py
+PYTHON=python
+
 if hash python3 2>/dev/null; then
-    ./halite -d "30 30" "python3 MyBot.py" "python3 RandomBot.py"
-else
-    ./halite -d "30 30" "python MyBot.py" "python RandomBot.py"
+    PYTHON=python3
 fi
+
+for SOME_BOT in ./*Bot.py ; do
+    ./halite -d "30 30" "$PYTHON $MY_BOT" "$PYTHON $SOME_BOT"
+done
