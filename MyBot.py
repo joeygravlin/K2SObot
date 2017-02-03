@@ -2,85 +2,61 @@ import logging
 import random
 import hlt
 from hlt import NORTH, EAST, SOUTH, WEST, STILL, Move, Square
+import random
 
-logging.basicConfig(filename='MyBot.log',level=logging.DEBUG)
 myID, game_map = hlt.get_init()
-logging.info(game_map.width)
-logging.info(game_map.height)
-turn = 1
+hlt.send_init("K2SOBot")
 
-#find the highest production value on the map
-topProd = 0
-for square in game_map:
-    if (square.production > topProd):
-        topProd = square.production
-logging.debug("Top Production: ")
-logging.info(topProd)
+#99% of this bot is just the Overkill bot with weigthed heuristics and altered 
+#production levels. We spent a lot of time messing with numbers trying to
+#get certain behaviors to become more prevalent than others
 
+def find_nearest_enemy_direction(square):
+    direction = NORTH
+    max_distance = min(game_map.width, game_map.height) / 2
+    for d in (NORTH, EAST, SOUTH, WEST):
+        distance = 0
+        current = square
+        while current.owner == myID and distance < max_distance:
+            distance += 1
+            current = game_map.get_target(current, d)
+        if distance < max_distance:
+            direction = d
+            max_distance = distance
+    return direction
 
-#make a list of all the squares with the highest prouction values
-
-hotSpots =  []
-for square in game_map:
-    if (square.production == topProd):
-        tup = (square.x, square.y)
-        hotSpots.append(tup)
-
-logging.debug("Got to end of hot spot list init.")
-logging.debug(hotSpots)
-
-#ISSUE IS WITH THIS LOOP
-#for square in game_map
-#   logging.info(square)
-    #if square.owner == myID:
-    #   logging.info(square)
-
-#find the closest high value production square
-HSdist = 999;
-for x, y in hotSpots:
-    logging.info(x)
-    logging.info(y)
-    #for square in game_map if square.owner == myID:
-    #logging.info(square)
-        #temp = hlt.get_distance(game_map, sq, x, y)
-        #if(temp < HSdist):
-            #HSdist = temp
-            #closeHotSpot = sq
-logging.info("Closest Hot Spot ")
-#logging.info(closeHotSpot.x)
-#logging.info(closeHotSpot.y)
-
-hlt.send_init("HotSpotBot")
-
-
-#if square has little strength, be still, if not random move to north or west
-def assign_move(square):
-
-    #dist = 99
-    #tempDirection = direction
-    for direction, neighbor in enumerate(game_map.neighbors(square)):
-        if neighbor.owner != myID and (neighbor.strength + neighbor.production) < square.strength:
-            #steer square towards closest hot spot early game
-            #if (turn < 51):
-            #   temp = hlt.get_distance(game_map, neighbor, square)
-            #   if(dist > temp):
-            #       dist = temp
-            #       tempDirection = direction
-            #else:
-                return Move(square, direction)
-
-    if square.strength < 5 * square.production:
-        return Move(square, STILL)
+def heuristic(square):
+	#default value of 1. Lower values means less likely to choose this action
+	#currently prioritizing gaining territory over fighting. 
+	#weak to an overly aggressive enemy
+    if square.owner == 0 and square.strength > 0:
+        return (square.production / square.strength)*7.5 #WEIGHT ADDED
     else:
-        return Move(square, random.choice((NORTH, WEST)))
+        # return total potential damage caused by overkill when attacking this square
+        return (sum(neighbor.strength for neighbor in game_map.neighbors(square) if neighbor.owner not in (0, myID)))*2.0 #WEIGHT ADDED
 
+def get_move(square):
+    target, direction = max(((neighbor, direction) for direction, neighbor in enumerate(game_map.neighbors(square))
+                                if neighbor.owner != myID),
+                                default = (None, None),
+                                key = lambda t: heuristic(t[0]))
+    if target is not None and target.strength < square.strength:
+        return Move(square, direction)
+	#base production multiplier is 5. Increased number means bots will be more
+	#patient and grow more before moving out, thus stronger armies, but slower reinforcements and territory gain
+    elif square.strength < square.production*4.5:#MODIFIED PRODUCITON MULTIPLIER
+        return Move(square, STILL)
+
+    border = any(neighbor.owner != myID for neighbor in game_map.neighbors(square))
+    if not border:
+        return Move(square, find_nearest_enemy_direction(square))
+    else:
+        #wait until we are strong enough to attack
+        return Move(square, STILL)
+
+    
 while True:
-    #update the current map
     game_map.get_frame()
-
-    # If a piece is owned by us, let's instruct it to move according to assign_move
-    moves = [assign_move(square) for square in game_map if square.owner == myID]
-
-    # send all of our moves to the environment
+    moves = [get_move(square) for square in game_map if square.owner == myID]
     hlt.send_frame(moves)
-    #turn++
+	
